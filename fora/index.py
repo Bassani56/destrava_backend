@@ -16,7 +16,6 @@ import re
 load_dotenv()
 
 app = Flask(__name__)
-
 CORS(app)
 
 mongo_uri = os.getenv("MONGO_URI")
@@ -26,13 +25,43 @@ client = MongoClient(mongo_uri)
 db = client["destrava"]
 colecao = db["banco"]
 
-
+#--------------------------------------------
 usuarios = db["usuarios"]
 # Impede que dois usuários tenham o mesmo e-mail
 usuarios.create_index("email", unique=True)
 
-
 atividades = db["atividades"]
+
+
+#--------------------------------------------
+amizades = db["amizades"]
+
+amizades.create_index(
+    [
+        ("usuario1_id", 1),
+        ("usuario2_id", 1)
+    ],
+    unique=True,
+    name="idx_amizade_unica"
+)
+
+amizades.create_index(
+    [
+        ("usuario1_id", 1),
+        ("status", 1)
+    ],
+    name="idx_amizade_usuario1"
+)
+
+amizades.create_index(
+    [
+        ("usuario2_id", 1),
+        ("status", 1)
+    ],
+    name="idx_amizade_usuario2"
+)
+
+#--------------------------------------------
 
 @app.route("/", methods=["GET"])
 def listar():
@@ -49,7 +78,6 @@ def listar():
 @app.route("/insert", methods=["POST"])
 def inserir():
     dado = request.json
-
     resultado = colecao.insert_one(dado)
 
     return jsonify({
@@ -121,10 +149,7 @@ def listarCorridas():
         ).sort("data", -1)
     )
 
-    print(
-        f"Listando corridas para o usuário_id: {usuario_id}, "
-        f"quantidade: {len(dados)}"
-    )
+    print(f"Listando corridas para o usuário_id: {usuario_id}, quantidade: {len(dados)}")
 
     return jsonify(dados), 200
 
@@ -140,9 +165,7 @@ def cadastro():
     senha = dado.get("senha", "")
 
     if not nome or not email or not senha:
-        return jsonify({
-            "mensagem": "Nome, e-mail e senha são obrigatórios."
-        }), 400
+        return jsonify({"mensagem": "Nome, e-mail e senha são obrigatórios."}), 400
 
     usuario = {
         "nome": nome,
@@ -197,36 +220,38 @@ def login():
     }), 401
 
 
-
-
-
-
-
 @app.route("/buscarUsuarios", methods=["GET"])
 def buscar_usuarios():
     try:
         termo = request.args.get("q", "").strip()
+        usuario_id = request.args.get("usuario_id", "").strip()
 
         if len(termo) < 2:
+            return jsonify({"erro": "Digite pelo menos 2 caracteres para pesquisar."}), 400
+
+        if not ObjectId.is_valid(usuario_id):
             return jsonify({
-                "erro": "Digite pelo menos 2 caracteres para pesquisar."
+                "erro": "ID do usuário inválido."
             }), 400
 
-        # Coleção que contém os usuários cadastrados
         colecao_usuarios = db["usuarios"]
-
-        # Pesquisa sem diferenciar letras maiúsculas e minúsculas
         termo_regex = re.escape(termo)
 
         filtro = {
-            "$or": [
-                {"nome": {"$regex": termo_regex, "$options": "i"}},
-                {"nomeUsuario": {"$regex": termo_regex, "$options": "i"}},
-                {"username": {"$regex": termo_regex, "$options": "i"}}
+            "$and": [
+                {
+                    "$or": [
+                        {"nome": {"$regex": termo_regex, "$options": "i"}},
+                        {"nomeUsuario": {"$regex": termo_regex, "$options": "i"}},
+                        {"username": {"$regex": termo_regex, "$options": "i"}}
+                    ]
+                },
+                {
+                    "_id": {"$ne": ObjectId(usuario_id)}
+                }
             ]
         }
 
-        # Retorna somente os campos públicos necessários
         projecao = {
             "_id": 1,
             "nome": 1,
@@ -261,129 +286,121 @@ def buscar_usuarios():
         }), 500
 
 
+# @app.route("/gerarAtividadesTeste", methods=["POST"])
+# def gerar_atividades_teste():
+#     try:
+#         print("\n=== INICIANDO GERAÇÃO DE ATIVIDADES ===")
+#         print("Banco:", db.name)
+#         print("Coleção:", atividades.name)
 
+#         emails = [
+#             "gabriel@gmail.com",
+#             "daniel@gmail.com",
+#             "rafael@gmail.com",
+#             "joao@gmail.com",
+#             "guilherme@gmail.com"
+#         ]
 
+#         quantidade_por_usuario = 5
+#         atividades_teste = []
+#         usuarios_encontrados = 0
 
+#         for email in emails:
+#             usuario = usuarios.find_one({
+#                 "email": email.strip().lower()
+#             })
 
+#             if not usuario:
+#                 print(f"USUÁRIO NÃO ENCONTRADO: {email}")
+#                 continue
 
-@app.route("/gerarAtividadesTeste", methods=["POST"])
-def gerar_atividades_teste():
-    try:
-        print("\n=== INICIANDO GERAÇÃO DE ATIVIDADES ===")
-        print("Banco:", db.name)
-        print("Coleção:", atividades.name)
+#             usuarios_encontrados += 1
 
-        emails = [
-            "gabriel@gmail.com",
-            "daniel@gmail.com",
-            "rafael@gmail.com",
-            "joao@gmail.com",
-            "guilherme@gmail.com"
-        ]
+#             print(
+#                 f"Usuário encontrado: {usuario.get('nome', email)} "
+#                 f"| ID: {usuario['_id']}"
+# )
 
-        quantidade_por_usuario = 5
-        atividades_teste = []
-        usuarios_encontrados = 0
+#             for _ in range(quantidade_por_usuario):
+#                 # Distância entre 2 e 15 km
+#                 distancia = round(random.uniform(2.0, 15.0), 2)
 
-        for email in emails:
-            usuario = usuarios.find_one({
-                "email": email.strip().lower()
-            })
+#                 # Ritmo entre 4:30 e 7:30 por quilômetro
+#                 ritmo_segundos = random.randint(270, 450)
+#                 duracao_segundos = int(distancia * ritmo_segundos)
 
-            if not usuario:
-                print(f"USUÁRIO NÃO ENCONTRADO: {email}")
-                continue
+#                 horas = duracao_segundos // 3600
+#                 minutos = (duracao_segundos % 3600) // 60
+#                 segundos = duracao_segundos % 60
 
-            usuarios_encontrados += 1
+#                 tempo = f"{horas:02}:{minutos:02}:{segundos:02}"
 
-            print(
-                f"Usuário encontrado: {usuario.get('nome', email)} "
-                f"| ID: {usuario['_id']}"
-            )
+#                 # Velocidade média em km/h
+#                 velocidade = distancia / (duracao_segundos / 3600)
 
-            for _ in range(quantidade_por_usuario):
-                # Distância entre 2 e 15 km
-                distancia = round(random.uniform(2.0, 15.0), 2)
+#                 # Data aleatória nos últimos 30 dias
+#                 dias_atras = random.randint(0, 29)
+#                 data_atividade = (
+#                     datetime.now() - timedelta(days=dias_atras)
+#                 ).strftime("%Y-%m-%d")
 
-                # Ritmo entre 4:30 e 7:30 por quilômetro
-                ritmo_segundos = random.randint(270, 450)
-                duracao_segundos = int(distancia * ritmo_segundos)
+#                 atividade = {
+#                     "usuario_id": usuario["_id"],
+#                     "distancia": f"{distancia:.2f}",
+#                     "tempo": tempo,
+#                     "velocidadeMedia": f"{velocidade:.2f}",
+#                     "data": data_atividade,
+#                     "compartilhada": random.choice([True, False]),
+#                     "dados_teste": True
+#                 }
 
-                horas = duracao_segundos // 3600
-                minutos = (duracao_segundos % 3600) // 60
-                segundos = duracao_segundos % 60
+#                 atividades_teste.append(atividade)
 
-                tempo = f"{horas:02}:{minutos:02}:{segundos:02}"
+#         if usuarios_encontrados == 0:
+#             return jsonify({
+#                 "sucesso": False,
+#                 "mensagem": (
+#                     "Nenhum usuário foi encontrado. "
+#                     "Confira os e-mails na coleção usuarios."
+#                 ),
+#                 "banco": db.name,
+#                 "colecao_usuarios": usuarios.name
+#             }), 404
 
-                # Velocidade média em km/h
-                velocidade = distancia / (duracao_segundos / 3600)
+#         print("Usuários encontrados:", usuarios_encontrados)
+#         print("Atividades preparadas:", len(atividades_teste))
 
-                # Data aleatória nos últimos 30 dias
-                dias_atras = random.randint(0, 29)
-                data_atividade = (
-                    datetime.now() - timedelta(days=dias_atras)
-                ).strftime("%Y-%m-%d")
+#         resultado = atividades.insert_many(atividades_teste)
 
-                atividade = {
-                    "usuario_id": usuario["_id"],
-                    "distancia": f"{distancia:.2f}",
-                    "tempo": tempo,
-                    "velocidadeMedia": f"{velocidade:.2f}",
-                    "data": data_atividade,
-                    "compartilhada": random.choice([True, False]),
-                    "dados_teste": True
-                }
+#         compartilhadas = sum(
+#             1 for atividade in atividades_teste
+#             if atividade["compartilhada"]
+#         )
 
-                atividades_teste.append(atividade)
+#         privadas = len(atividades_teste) - compartilhadas
 
-        if usuarios_encontrados == 0:
-            return jsonify({
-                "sucesso": False,
-                "mensagem": (
-                    "Nenhum usuário foi encontrado. "
-                    "Confira os e-mails na coleção usuarios."
-                ),
-                "banco": db.name,
-                "colecao_usuarios": usuarios.name
-            }), 404
+#         print("Atividades inseridas:", len(resultado.inserted_ids))
+#         print("=== GERAÇÃO FINALIZADA ===\n")
 
-        print("Usuários encontrados:", usuarios_encontrados)
-        print("Atividades preparadas:", len(atividades_teste))
+#         return jsonify({
+#             "sucesso": True,
+#             "mensagem": "Atividades de teste geradas com sucesso.",
+#             "banco": db.name,
+#             "colecao": atividades.name,
+#             "usuarios_encontrados": usuarios_encontrados,
+#             "atividades_por_usuario": quantidade_por_usuario,
+#             "total_atividades": len(resultado.inserted_ids),
+#             "atividades_compartilhadas": compartilhadas,
+#             "atividades_privadas": privadas
+#         }), 201
 
-        resultado = atividades.insert_many(atividades_teste)
+#     except Exception:
+#         app.logger.exception("Erro ao gerar atividades de teste")
 
-        compartilhadas = sum(
-            1 for atividade in atividades_teste
-            if atividade["compartilhada"]
-        )
-
-        privadas = len(atividades_teste) - compartilhadas
-
-        print("Atividades inseridas:", len(resultado.inserted_ids))
-        print("=== GERAÇÃO FINALIZADA ===\n")
-
-        return jsonify({
-            "sucesso": True,
-            "mensagem": "Atividades de teste geradas com sucesso.",
-            "banco": db.name,
-            "colecao": atividades.name,
-            "usuarios_encontrados": usuarios_encontrados,
-            "atividades_por_usuario": quantidade_por_usuario,
-            "total_atividades": len(resultado.inserted_ids),
-            "atividades_compartilhadas": compartilhadas,
-            "atividades_privadas": privadas
-        }), 201
-
-    except Exception:
-        app.logger.exception("Erro ao gerar atividades de teste")
-
-        return jsonify({
-            "sucesso": False,
-            "mensagem": "Erro ao gerar atividades. Consulte o terminal do Flask."
-        }), 500
-
-
-
+#         return jsonify({
+#             "sucesso": False,
+#             "mensagem": "Erro ao gerar atividades. Consulte o terminal do Flask."
+#         }), 500
 
 app.run(
     host="0.0.0.0",
