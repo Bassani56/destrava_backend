@@ -47,7 +47,6 @@ def listarCorridas():
 
 @atividades_bp.route("/salvarCorrida", methods=["POST"])
 def salvarCorrida():
-
     dado = request.get_json()
 
     if not dado:
@@ -124,7 +123,6 @@ def buscar_feed():
         ids_usuarios = {usuario_oid}
 
         for relacao in relacoes:
-
             solicitante = relacao["solicitante_id"]
             destinatario = relacao["destinatario_id"]
 
@@ -135,16 +133,12 @@ def buscar_feed():
 
         # 3. Buscar atividades desses usuários
         resultado = atividades.find({
-            "usuario_id": {
-                "$in": list(ids_usuarios)
-            }
+            "usuario_id": {"$in": list(ids_usuarios)}
         }).sort("data", -1).limit(50)
 
         # 4. Buscar os dados dos usuários
         lista_usuarios = usuarios.find({
-            "_id": {
-                "$in": list(ids_usuarios)
-            }
+            "_id": {"$in": list(ids_usuarios)}
         })
 
         usuarios_por_id = {
@@ -156,9 +150,7 @@ def buscar_feed():
         feed = []
 
         for atividade in resultado:
-
             id_usuario = str(atividade["usuario_id"])
-
             usuario = usuarios_por_id.get(id_usuario)
 
             if not usuario:
@@ -180,13 +172,13 @@ def buscar_feed():
                     data.isoformat()
                     if hasattr(data, "isoformat")
                     else str(data)
-                )
+                ),
+                "pontos": atividade.get("pontos", [])
             })
 
         return jsonify(feed), 200
 
     except Exception as e:
-
         print(f"Erro ao carregar feed: {e}")
 
         return jsonify({
