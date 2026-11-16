@@ -8,7 +8,6 @@ usuarios_bp = Blueprint("usuarios", __name__)
 
 @usuarios_bp.route("/buscarUsuarios", methods=["GET"])
 def buscar_usuarios():
-
     try:
         termo = request.args.get("q", "").strip()
         usuario_id = request.args.get("usuario_id", "").strip()

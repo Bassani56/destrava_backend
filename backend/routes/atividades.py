@@ -13,7 +13,6 @@ usuarios = db["usuarios"]
 
 @atividades_bp.route("/listarCorridas", methods=["GET"])
 def listarCorridas():
-
     usuario_id = request.args.get("usuario_id")
 
     if not usuario_id or not ObjectId.is_valid(usuario_id):
