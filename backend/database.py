@@ -16,32 +16,30 @@ usuarios = db["usuarios"]
 atividades = db["atividades"]
 amizades = db["amizades"]
 
-# Índices
-usuarios.create_index("email", unique=True)
-# Índices
-usuarios.create_index("email", unique=True)
+def ensure_indexes():
+    usuarios.create_index("email", unique=True)
 
-amizades.create_index(
-    [
-        ("solicitante_id", 1),
-        ("destinatario_id", 1)
-    ],
-    unique=True,
-    name="idx_solicitacao_unica"
-)
+    amizades.create_index(
+        [
+            ("solicitante_id", 1),
+            ("destinatario_id", 1)
+        ],
+        unique=True,
+        name="idx_solicitacao_unica"
+    )
 
-amizades.create_index(
-    [
-        ("solicitante_id", 1),
-        ("status", 1)
-    ],
-    name="idx_solicitante_status"
-)
+    amizades.create_index(
+        [
+            ("solicitante_id", 1),
+            ("status", 1)
+        ],
+        name="idx_solicitante_status"
+    )
 
-amizades.create_index(
-    [
-        ("destinatario_id", 1),
-        ("status", 1)
-    ],
-    name="idx_destinatario_status"
-)
+    amizades.create_index(
+        [
+            ("destinatario_id", 1),
+            ("status", 1)
+        ],
+        name="idx_destinatario_status"
+    )

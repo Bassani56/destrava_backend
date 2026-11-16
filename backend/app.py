@@ -5,6 +5,7 @@ from routes.atividades import atividades_bp
 from routes.autenticacao import autenticacao_bp
 from routes.usuarios import usuarios_bp
 from routes.amizades import amizades_bp
+from database import ensure_indexes
 
 app = Flask(__name__)
 
@@ -18,6 +19,7 @@ app.register_blueprint(amizades_bp)
 print(app.url_map)
 
 if __name__ == "__main__":
+    ensure_indexes()
     app.run(
         host="0.0.0.0",
         port=3000,
