@@ -1,6 +1,10 @@
 from flask import Blueprint, request, jsonify
 from database import usuarios
 
+from bson import ObjectId
+from bson.errors import InvalidId
+
+
 from werkzeug.security import (
     generate_password_hash,
     check_password_hash
@@ -17,7 +21,6 @@ autenticacao_bp = Blueprint(
 
 @autenticacao_bp.route("/cadastro", methods=["POST"])
 def cadastro():
-
     dado = request.get_json()
 
     if not dado:
@@ -37,11 +40,11 @@ def cadastro():
     usuario = {
         "nome": nome,
         "email": email,
-        "senha": generate_password_hash(senha)
+        "senha": generate_password_hash(senha),
+        "tipo": "atleta"
     }
 
     try:
-
         resultado = usuarios.insert_one(usuario)
 
         return jsonify({
@@ -58,7 +61,6 @@ def cadastro():
 
 @autenticacao_bp.route("/login", methods=["POST"])
 def login():
-
     dado = request.get_json()
 
     if not dado:
@@ -79,16 +81,55 @@ def login():
     })
 
     if usuario and check_password_hash(usuario["senha"], senha):
-
         return jsonify({
             "sucesso": True,
             "mensagem": "Login realizado com sucesso!",
             "id": str(usuario["_id"]),
             "nome": usuario["nome"],
-            "email": usuario["email"]
+            "email": usuario["email"],
+            "tipo": usuario.get("tipo", "atleta")
         }), 200
 
     return jsonify({
         "sucesso": False,
         "mensagem": "E-mail ou senha incorretos."
     }), 401
+
+
+@autenticacao_bp.route("/usuarios", methods=["GET"])
+def listar_usuarios():
+    lista_usuarios = []
+
+    for usuario in usuarios.find(
+        {"tipo": {"$ne": "admin"}},
+        {"senha": 0}
+    ):
+        lista_usuarios.append({
+            "id": str(usuario["_id"]),
+            "nome": usuario["nome"],
+            "email": usuario["email"]
+        })
+
+    return jsonify(lista_usuarios), 200
+
+@autenticacao_bp.route("/usuarios/<id>", methods=["DELETE"])
+def excluir_usuario(id):
+    try:
+        usuario_id = ObjectId(id)
+    except InvalidId:
+        return jsonify({
+            "mensagem": "ID de usuário inválido."
+        }), 400
+
+    resultado = usuarios.delete_one({
+        "_id": usuario_id
+    })
+
+    if resultado.deleted_count == 0:
+        return jsonify({
+            "mensagem": "Usuário não encontrado."
+        }), 404
+
+    return jsonify({
+        "mensagem": "Usuário removido com sucesso!"
+    }), 200
